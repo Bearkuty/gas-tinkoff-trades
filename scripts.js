@@ -1,12 +1,12 @@
 const OPENAPI_TOKEN = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Настройки").getRange("B1").getValue()
-const TRADING_START_AT = new Date('Jan 01, 2020 10:00:00')
+const TRADING_START_AT = new Date('Jan 01, 2019 10:00:00')
 const MILLIS_PER_DAY = 1000 * 60 * 60 * 24
 
 function isoToDate(dateStr){
   const str = dateStr.replace(/-/,'/').replace(/-/,'/').replace(/T/,' ').replace(/\+/,' \+').replace(/Z/,' +00')
   return new Date(str)
 }
-
+    
 function onOpen() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet()
   var entries = [{
@@ -186,7 +186,7 @@ function getAllTrades(from, to, refresh){
     }else{
       com_val = 0
     }
-    if (operationType == "Tax" || operationType == "TaxDividend" || operationType == "Dividend"){
+    if (operationType == "Tax" || operationType == "TaxDividend" || operationType == "Dividend" || operationType == "PartRepayment" || operationType == "Coupon" || operationType == "TaxCoupon"){
       totalQuantity = '-'
       weigthedPrice = '-'
     }
