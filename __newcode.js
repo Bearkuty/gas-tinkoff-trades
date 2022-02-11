@@ -3,7 +3,10 @@ const TRADING_START_AT = new Date('Jan 01, 2019 10:00:00')
 const MILLIS_PER_DAY = 1000 * 60 * 60 * 24
 const CACHE = CacheService.getScriptCache()
 
-const tinkoffClient = new TinkoffClient(OPENAPI_TOKEN)
+function getActiveSheetName(){
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  return sheet.getName()
+}
 
 class TinkoffClient {
   constructor(token){
@@ -81,6 +84,26 @@ class TinkoffClient {
   }
 }
 
+const tinkoffClient = new TinkoffClient(OPENAPI_TOKEN)
+
+function getPortfolio2(refresh){
+  const portfolio = tinkoffClient.getPort()
+  const values = []
+  values.push(["Тикер", "Название", "Кол-во", "Покупка", "Текущая", "Валюта"])
+  for (let i=portfolio.length-1; i>=0; i--) {
+    const {ticker, name, balance, averagePositionPrice, expectedYield} = portfolio [i]
+    if(SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ticker)===null){
+      SpreadsheetApp.getActiveSpreadsheet().insertSheet().setName(ticker)
+      .getRange(1,1,2).setValues([['=getactivesheetname()',],['=gettrades(a1)']])
+    }
+    buy_price = averagePositionPrice.value * balance
+    values.push([
+      ticker, name, balance, buy_price, buy_price + expectedYield.value, averagePositionPrice.currency
+    ])
+  }
+  return values
+}
+
 function isoToDate(dateStr){
   const str = dateStr.replace(/-/,'/').replace(/-/,'/').replace(/T/,' ').replace(/\+/,' \+').replace(/Z/,' +00')
   return new Date(str)
@@ -92,6 +115,7 @@ function onOpen() {
     name : "Обновить",
     functionName : "refresh"
   }]
+  entries.push({name:'getPortfolio2',functionName:'getPortfolio2'})
   sheet.addMenu("TI", entries)
 };
 
