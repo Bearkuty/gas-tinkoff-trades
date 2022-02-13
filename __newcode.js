@@ -1,3 +1,14 @@
+// TODO:
+// 
+// Изменить  createTickersDropdownList
+// чтобы список тикеров кэшился на листе summary
+// и обновлялся раз в сутки или через меню
+// 
+// 
+// 
+// 
+// 
+
 const OPENAPI_TOKEN = SpreadsheetApp.getActiveSpreadsheet().getRangeByName("API_Token").getValue()
 const TRADING_START_AT = new Date('Jan 01, 2019 10:00:00')
 const MILLIS_PER_DAY = 1000 * 60 * 60 * 24
@@ -6,6 +17,30 @@ const CACHE = CacheService.getScriptCache()
 function getActiveSheetName(){
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   return sheet.getName()
+}
+
+function getAllTradedTickers(){
+  // возвращает массив со всеми торговавшимися тикерами
+  from = TRADING_START_AT.toISOString()
+  to = new Date(new Date() + MILLIS_PER_DAY).toISOString()
+  const operations = tinkoffClient.getAll (from, to)
+  let figivalues = []
+  for (let i=operations.length-1; i>=0; i--) {
+    const {figi} = operations[i]
+    figivalues.push(figi)
+  }
+
+  figivalues = [...new Set(figivalues)];
+  // let tickervalues=figivalues.map(tinkoffClient.getTickerByFigi)
+  const tickervalues=[]
+  for(let item of figivalues){
+    if (item){
+      var ticker = tinkoffClient.getTickerByFigi(item)
+      tickervalues.push(ticker)
+      Utilities.sleep(50)
+    }
+  }
+  return(tickervalues)
 }
 
 class TinkoffClient {
@@ -19,7 +54,7 @@ class TinkoffClient {
     const params = {'escaping': false, 'headers': {'accept': 'application/json', "Authorization": `Bearer ${this.token}`}}
     const response = UrlFetchApp.fetch(url, params)
     if (response.getResponseCode() == 200)
-      return JSON.parse(response.getContentText())
+      return JSON.parse(response.getContentText()) 
   }
   getFIGIbyTicker(ticker){
     const url = `market/search/by-ticker?ticker=${ticker}`
@@ -84,24 +119,38 @@ class TinkoffClient {
   }
 }
 
+class DropdownList {
+  constructor(range,values=['USD000UTSTOM', 'EUR_RUB__TOM']){
+    var cell = SpreadsheetApp.getActive().getRange(range);
+    var rule = SpreadsheetApp.newDataValidation().setAllowInvalid(true).requireValueInList(values).build();
+    cell.setDataValidation(rule);
+  }
+}
+
 const tinkoffClient = new TinkoffClient(OPENAPI_TOKEN)
 
-function getPortfolio2(refresh){
+function createSheetsForTickers(){
   const portfolio = tinkoffClient.getPort()
-  const values = []
-  values.push(["Тикер", "Название", "Кол-во", "Покупка", "Текущая", "Валюта"])
   for (let i=portfolio.length-1; i>=0; i--) {
     const {ticker, name, balance, averagePositionPrice, expectedYield} = portfolio [i]
     if(SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ticker)===null){
+      const rangevalues=[
+        [ticker,'тикер',],
+        ['=-sumproduct(c:c;D:D)','-расход +доход'], // баланс расходов-доходов
+        ['=sum(f:f)','комиссия'], // комса
+        ['=sum(c:c)','кол-во'], // кол-во бумаг сейчас
+        ['=(A2+A3)/A4','средняя'], // средняя с учетом всего (докупок, продаж (в т. ч. частичных), комиссии)
+        [null,null],
+        ['=gettrades(a1)',''],
+      ]
       SpreadsheetApp.getActiveSpreadsheet().insertSheet().setName(ticker)
-      .getRange(1,1,2).setValues([['=getactivesheetname()',],['=gettrades(a1)']])
+      .getRange(1,1,rangevalues.length,2).setValues(rangevalues)
     }
-    buy_price = averagePositionPrice.value * balance
-    values.push([
-      ticker, name, balance, buy_price, buy_price + expectedYield.value, averagePositionPrice.currency
-    ])
   }
-  return values
+}
+
+function createTickersDropdownList(){
+  new DropdownList('a1',getAllTradedTickers())
 }
 
 function isoToDate(dateStr){
@@ -110,12 +159,13 @@ function isoToDate(dateStr){
 }
     
 function onOpen() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet()
-  var entries = [{
-    name : "Обновить",
-    functionName : "refresh"
-  }]
-  entries.push({name:'getPortfolio2',functionName:'getPortfolio2'})
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+  const entries = [
+    {name:'createTickersDropdownList',functionName:'createTickersDropdownList'},
+    {name:'createSheetsForTickers',functionName:'createSheetsForTickers'},
+    null,
+    {name : "Обновить", functionName : "refresh"}
+  ]
   sheet.addMenu("TI", entries)
 };
 
