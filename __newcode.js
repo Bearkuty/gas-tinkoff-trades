@@ -14,6 +14,13 @@ const TRADING_START_AT = new Date('Jan 01, 2019 10:00:00')
 const MILLIS_PER_DAY = 1000 * 60 * 60 * 24
 const CACHE = CacheService.getScriptCache()
 
+function buildRangeWithAllTradedTickers(){
+  let values=[]
+  for(let item of getAllTradedTickers())
+  {values.push([item])}
+  SpreadsheetApp.getActive().getSheetByName('summary').getRange(1,1,values.length).setValues(values)
+}
+
 function getActiveSheetName(){
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   return sheet.getName()
@@ -37,7 +44,7 @@ function getAllTradedTickers(){
     if (item){
       var ticker = tinkoffClient.getTickerByFigi(item)
       tickervalues.push(ticker)
-      Utilities.sleep(50)
+      Utilities.sleep(200)
     }
   }
   return(tickervalues)
@@ -150,7 +157,8 @@ function createSheetsForTickers(){
 }
 
 function createTickersDropdownList(){
-  new DropdownList('a1',getAllTradedTickers())
+  // new DropdownList('a1',getAllTradedTickers())
+  new DropdownList('a1')
 }
 
 function isoToDate(dateStr){
@@ -161,6 +169,7 @@ function isoToDate(dateStr){
 function onOpen() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet()
   const entries = [
+    {name:'buildRangeWithAllTradedTickers',functionName:'buildRangeWithAllTradedTickers'},
     {name:'createTickersDropdownList',functionName:'createTickersDropdownList'},
     {name:'createSheetsForTickers',functionName:'createSheetsForTickers'},
     null,
